@@ -33,7 +33,7 @@ Create table Person.Patient(
 */ --tables are already created
 
 --CREATE SCHEMA Place
-
+/*
 Create table Place.Building(
 	code INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 	service varchar(200) NOT NULL
@@ -45,34 +45,38 @@ CREATE table Place.Endowment(
 )
 Create table Place.Room(
 	building_code INT,
-	room_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY
+	CONSTRAINT fk_building_room
+		FOREIGN KEY (building_code)
+		REFERENCES Place.Building(code),
+	room_id INT GENERATED ALWAYS AS IDENTITY,
 	number int not null,
 	floor int not null,
-	CONSTRAINT pk_number_at_floor PRIMARY KEY(number,floor),
+	CONSTRAINT pk_number_at_floor UNIQUE(number,floor),
 	lenght int not null,
 	width int not null,
 	windows bit not null,
 	is_consultory bit not null,
 	is_rented bit not null,
 	administration_costs int not null,
-	rental_date datetime not null,
-	last_remodeling datetime not null,
+	rental_date date not null,
+	last_remodeling date not null,
 	owner_id int not null,
-	tenant_it itn not null,
+	tenant_id int not null,
 	CONSTRAINT fk_owner_of_room 
-		FOREING KEY(owner_id)
+		FOREIGN KEY(owner_id)
 		REFERENCES Person.Owner(owner_id),
 	CONSTRAINT fk_tenant_of_room 
-		FOREING KEY(tenant_it)
-		REFERENCES Person.Tenant(tenant_it)
+		FOREIGN KEY(tenant_id)
+		REFERENCES Person.Tenant(tenant_id)
 )
+*/
+--CREATE SCHEMA Staff
 
-CREATE SCHEMA Staff
 
 
 
 CREATE SCHEMA Service
-
+/*
 Create table Service.Service(
 	code INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 	service_type varchar(200) UNIQUE NOT NULL
@@ -81,3 +85,4 @@ Create table Service.Medicine(
 	medicine_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 	name varchar(200) UNIQUE NOT NULL
 )
+*/
