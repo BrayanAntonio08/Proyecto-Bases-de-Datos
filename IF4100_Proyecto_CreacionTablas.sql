@@ -1,3 +1,5 @@
+DROP IF EXISTS SCHEMA service CASCADE
+DROP IF EXISTS SCHEMA staff CASCADE
 
 CREATE SCHEMA Person;
 
@@ -102,12 +104,10 @@ CREATE TABLE Staff.Staff(
 	job VARCHAR(50) NOT NULL
 );
 
---DROP TABLE Staff.Doctor CASCADE; 
-
 CREATE TABLE Staff.Medical_area(
 	area_id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-	name VARCHAR(255) UNIQUE,
-	doctor_director_code INTEGER NOT NULL UNIQUE
+	name VARCHAR(255) NOT NULL UNIQUE,
+	doctor_director_code INTEGER UNIQUE
 );
 
 CREATE TABLE Staff.Doctor(
@@ -118,6 +118,9 @@ CREATE TABLE Staff.Doctor(
 	CONSTRAINT fk_doctor_specialty FOREIGN KEY(medical_area_specialty)
 		REFERENCES Staff.Medical_area(area_id)
 );
+
+ALTER TABLE Staff.Doctor ADD
+	CONSTRAINT ck_unasigned_code CHECK (Staff.ck_asigned_job(Staff.Doctor.medical_staff_code) = B'0');
 
 ALTER TABLE staff.Medical_area ADD 
 	CONSTRAINT fk_director_doctor FOREIGN KEY(doctor_director_code)
@@ -140,8 +143,10 @@ CREATE Table Staff.Nurse(
 	
 	operating_floor_id INTEGER NOT NULL DEFAULT 0,
 	CONSTRAINT fk_operating_floor FOREIGN KEY(operating_floor_id)
-		REFERENCES Staff.Operating_floor(floor_id)
+		REFERENCES Staff.Operating_floor(floor_id)	
 );
+ALTER TABLE Staff.Nurse ADD
+	CONSTRAINT ck_unasigned_code CHECK (Staff.ck_asigned_job(Staff.Nurse.medical_staff_code) = B'0');
 
 ALTER TABLE Staff.Operating_floor ADD
 	CONSTRAINT fk_nurse_in_charge FOREIGN KEY(charge_nurse_staff_code)
@@ -159,21 +164,100 @@ CREATE TABLE Staff.Auxiliar(
 	operating_floor_id INTEGER NOT NULL DEFAULT 0,
 	CONSTRAINT fk_operating_floor FOREIGN KEY(operating_floor_id)
 		REFERENCES Staff.Operating_floor(floor_id)
-)
+);
 
-CREATE SCHEMA Service
+ALTER TABLE Staff.auxiliar ADD
+	CONSTRAINT ck_unasigned_code CHECK (Staff.ck_asigned_job(Staff.Auxiliar.medical_staff_code) = B'0');
 
-Create table service(
+CREATE SCHEMA Service;
+
+Create table Service.Service(
 	code INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-	service_type varchar(200) NOT NULL
-)
+	service_type varchar(200) NOT NULL UNIQUE
+);
 
-Create table edificio(
-code Integer primary key,
-service varchar(200)
-)
+CREATE TABLE Service.Service_record(
+	record_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+	patient_id INTEGER NOT NULL,
+	CONSTRAINT fk_service_to_pacient FOREIGN KEY (patient_id)
+		REFERENCES Person.Patient(patient_id),
+	
+	service_code INTEGER NOT NULL,
+	CONSTRAINT fk_service_recorded FOREIGN KEY (service_code)
+		REFERENCES Service.Service(code),
+	
+	doctor_code INTEGER NOT NULL,
+	CONSTRAINT fk_service_by_doctor FOREIGN KEY (doctor_code)
+		REFERENCES Staff.Doctor(medical_staff_code),
+	
+	credit_payment BIT NOT NULL,
+	consulting_date DATE NOT NULL,
+	exit_edit DATE NOT NULL
+	
+);
 
-Create table medicine(
-medicine_id Integer primary key,
-name varchar(200)
-)
+CREATE TABLE Service.Hospitalization_service(
+	service_record_id INTEGER PRIMARY KEY,
+	CONSTRAINT fk_hospitalization_for_service FOREIGN KEY (service_record_id)
+		REFERENCES Service.Service_record(record_id),
+	room_cost INTEGER NOT NULL,
+	days_hospitalized INTEGER NOT NULL,
+	restaurant_cost INTEGER NOT NULL,
+	extra_supplies_cost INTEGER NOT NULL,
+	doctor_code INTEGER NOT NULL,
+	CONSTRAINT fk_visit_doctor FOREIGN KEY (doctor_code)
+		REFERENCES Staff.Doctor(medical_staff_code)
+);
+
+-- WARNING: run this alter after creating the visit card table, and the function for counting visits
+ALTER TABLE service.hospitalization_service ADD
+	doctor_check_visits INTEGER GENERATED ALWAYS AS 
+	(Service.sp_count_doctor_visits(Service.Hospitalization_service.service_record_id)) STORED;
+
+
+CREATE TABLE Service.Exam_record(
+	record_id INTEGER NOT NULL,
+	CONSTRAINT fk_exam_for_service FOREIGN KEY (record_id)
+		REFERENCES Service.Service_record(record_id),
+	exam_id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+	doctor_code INTEGER NOT NULL,
+	exam_type VARCHAR(50) NOT NULL,
+	exam_cost INTEGER NOT NULL DEFAULT 50,
+	used_machines VARCHAR(255) DEFAULT 'No machines used',
+	results VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE Service.Medicine(
+	medicine_id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+	name varchar(200) not null unique
+);
+
+CREATE TABLE Service.Service_record_Medicine(
+	service_record_id INTEGER NOT NULL,
+	medicine_id INTEGER NOT NULL,
+	PRIMARY KEY(service_record_id, medicine_id),
+	CONSTRAINT fk_medicine FOREIGN KEY (medicine_id)
+		REFERENCES Service.Medicine(medicine_id),
+	CONSTRAINT fk_service_record FOREIGN KEY(service_record_id)
+		REFERENCES Service.Service_record(record_id),
+	dose INTEGER NOT NULL,
+	reference VARCHAR(100) NOT NULL DEFAULT 'No extra details'
+);
+
+CREATE TABLE Service.Visit_card(
+	visit_card_id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+	hospitalization_service_record_id INTEGER NOT NULL,
+	visit_date DATE NOT NULL,
+	recommended_treatment VARCHAR(255) NOT NULL,
+	patient_state VARCHAR(50) NOT NULL
+);
+
+CREATE TABLE Service.Medicine_recommended_Visit(
+	medicine_id INTEGER NOT NULL,
+	visit_card_id INTEGER NOT NULL,
+	PRIMARY KEY(medicine_id, visit_card_id),
+	CONSTRAINT fk_recommended_medicine FOREIGN KEY(medicine_id)
+		 REFERENCES Service.Medicine(medicine_id),
+	CONSTRAINT fk_visit_card FOREIGN KEY (visit_card_id)
+		REFERENCES Service.Visit_card(visit_card_id)
+);
